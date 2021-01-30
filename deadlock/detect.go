@@ -3,6 +3,7 @@ package deadlock
 import (
 	"bufio"
 	"fmt"
+	"log"
 	"sync"
 	"time"
 
@@ -78,12 +79,14 @@ func (m *Detector) Detect() {
 
 	now := time.Now().Unix()
 	deads := make(map[sync.Locker]*lockerCtx)
+	log.Printf("check lockers begin:\n")
 	m.mu.Lock()
 	for l, ctx := range m.lockers {
 		if ctx.locktime+tiSec <= now {
 			deads[l] = ctx
 		}
 	}
+	log.Printf("check lockers end: %d %d\n", len(m.lockers), len(deads))
 	m.mu.Unlock()
 	if len(deads) > 0 {
 		for l, ctx := range deads {
