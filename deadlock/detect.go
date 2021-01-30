@@ -79,14 +79,14 @@ func (m *Detector) Detect() {
 
 	now := time.Now().Unix()
 	deads := make(map[sync.Locker]*lockerCtx)
-	log.Printf("check lockers begin:\n")
+	log.Printf("check lockers begin: %v\n", m.waiters)
 	m.mu.Lock()
 	for l, ctx := range m.lockers {
 		if ctx.locktime+tiSec <= now {
 			deads[l] = ctx
 		}
 	}
-	log.Printf("check lockers end: %d %d\n", len(m.lockers), len(deads))
+	log.Printf("check lockers end: %v %d %d\n", m.waiters, len(m.lockers), len(deads))
 	m.mu.Unlock()
 	if len(deads) > 0 {
 		for l, ctx := range deads {
