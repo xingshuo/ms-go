@@ -14,7 +14,7 @@ func stacks() map[int64][]byte {
 	var buf []byte
 	for {
 		n := runtime.Stack(buffer, true)
-		if n <= len(buffer) {
+		if n < len(buffer) {
 			buf = buffer[:n]
 			break
 		}
