@@ -1,26 +1,30 @@
 package deadlock
 
 import "sync"
+import "github.com/petermattis/goid"
 
 type Mutex struct {
 	L sync.Mutex
 }
 
 func (m *Mutex) Lock() {
-	if !Opts.Disable {
-		detector.addWaiter(m)
+	if Opts.Disable {
+		m.L.Lock()
+		return
 	}
+	gid := goid.Get()
+	detector.addWaiter(m, gid)
 	m.L.Lock()
-	if !Opts.Disable {
-		detector.addLocker(m)
-	}
+	detector.addLocker(m, gid)
 }
 
 func (m *Mutex) Unlock() {
-	m.L.Unlock()
-	if !Opts.Disable {
-		detector.delLocker(m)
+	if Opts.Disable {
+		m.L.Unlock()
+		return
 	}
+	m.L.Unlock()
+	detector.delLocker(m)
 }
 
 type RWMutex struct {
@@ -28,37 +32,43 @@ type RWMutex struct {
 }
 
 func (m *RWMutex) Lock() {
-	if !Opts.Disable {
-		detector.addWaiter(m)
+	if Opts.Disable {
+		m.L.Lock()
+		return
 	}
+	gid := goid.Get()
+	detector.addWaiter(m, gid)
 	m.L.Lock()
-	if !Opts.Disable {
-		detector.addLocker(m)
-	}
+	detector.addLocker(m, gid)
 }
 
 func (m *RWMutex) Unlock() {
-	m.L.Unlock()
-	if !Opts.Disable {
-		detector.delLocker(m)
+	if Opts.Disable {
+		m.L.Unlock()
+		return
 	}
+	m.L.Unlock()
+	detector.delLocker(m)
 }
 
 func (m *RWMutex) RLock() {
-	if !Opts.Disable {
-		detector.addWaiter(m)
+	if Opts.Disable {
+		m.L.RLock()
+		return
 	}
+	gid := goid.Get()
+	detector.addWaiter(m, gid)
 	m.L.RLock()
-	if !Opts.Disable {
-		detector.addLocker(m)
-	}
+	detector.addLocker(m, gid)
 }
 
 func (m *RWMutex) RUnlock() {
-	m.L.RUnlock()
-	if !Opts.Disable {
-		detector.delLocker(m)
+	if Opts.Disable {
+		m.L.RUnlock()
+		return
 	}
+	m.L.RUnlock()
+	detector.delLocker(m)
 }
 
 func (m *RWMutex) RLocker() sync.Locker {

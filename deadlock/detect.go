@@ -6,8 +6,6 @@ import (
 	"log"
 	"sync"
 	"time"
-
-	"github.com/petermattis/goid"
 )
 
 var (
@@ -41,8 +39,7 @@ type Detector struct {
 	waiters map[sync.Locker]map[int64]bool // second key is gid
 }
 
-func (m *Detector) addWaiter(l sync.Locker) {
-	gid := goid.Get()
+func (m *Detector) addWaiter(l sync.Locker, gid int64) {
 	m.mu.Lock()
 	if m.waiters[l] == nil {
 		m.waiters[l] = make(map[int64]bool)
@@ -51,8 +48,7 @@ func (m *Detector) addWaiter(l sync.Locker) {
 	m.mu.Unlock()
 }
 
-func (m *Detector) addLocker(l sync.Locker) {
-	gid := goid.Get()
+func (m *Detector) addLocker(l sync.Locker, gid int64) {
 	m.mu.Lock()
 	if m.waiters[l][gid] {
 		delete(m.waiters[l], gid)
