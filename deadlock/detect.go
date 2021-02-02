@@ -53,6 +53,7 @@ func (m *Detector) addLocker(l sync.Locker, gid int64) {
 	if m.waiters[l][gid] {
 		delete(m.waiters[l], gid)
 		m.lockers[l] = &lockerCtx{gid, time.Now().Unix(), m.waiters[l]}
+		log.Printf("add locker %v %d\n", l, gid)
 	} else {
 		panic(fmt.Sprintf("add lock failed, not find wait gid:%d", gid))
 	}
@@ -61,6 +62,12 @@ func (m *Detector) addLocker(l sync.Locker, gid int64) {
 
 func (m *Detector) delLocker(l sync.Locker) {
 	m.mu.Lock()
+	ctx := m.lockers[l]
+	if ctx != nil {
+		log.Printf("del locker %v %d\n", l, ctx.gid)
+	} else {
+		log.Printf("del locker %v nil\n", l)
+	}
 	delete(m.lockers, l)
 	m.mu.Unlock()
 }
