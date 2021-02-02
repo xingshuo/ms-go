@@ -1,6 +1,9 @@
 package deadlock
 
-import "sync"
+import (
+	"sync"
+	"sync/atomic"
+)
 import "github.com/petermattis/goid"
 
 type Mutex struct {
@@ -29,6 +32,8 @@ func (m *Mutex) Unlock() {
 
 type RWMutex struct {
 	L sync.RWMutex
+	Ref int64
+	WaitRef int64
 }
 
 func (m *RWMutex) Lock() {
@@ -38,7 +43,10 @@ func (m *RWMutex) Lock() {
 	}
 	gid := goid.Get()
 	detector.addWaiter(m, gid)
+	atomic.AddInt64(&m.WaitRef, 1)
 	m.L.Lock()
+	atomic.AddInt64(&m.Ref, 1)
+	atomic.AddInt64(&m.WaitRef, -1)
 	detector.addLocker(m, gid)
 }
 
@@ -47,6 +55,7 @@ func (m *RWMutex) Unlock() {
 		m.L.Unlock()
 		return
 	}
+	atomic.AddInt64(&m.Ref, -1)
 	m.L.Unlock()
 	detector.delLocker(m)
 }
@@ -58,7 +67,10 @@ func (m *RWMutex) RLock() {
 	}
 	gid := goid.Get()
 	detector.addWaiter(m, gid)
+	atomic.AddInt64(&m.WaitRef, 1)
 	m.L.RLock()
+	atomic.AddInt64(&m.Ref, 1)
+	atomic.AddInt64(&m.WaitRef, -1)
 	detector.addLocker(m, gid)
 }
 
@@ -67,6 +79,7 @@ func (m *RWMutex) RUnlock() {
 		m.L.RUnlock()
 		return
 	}
+	atomic.AddInt64(&m.Ref, -1)
 	m.L.RUnlock()
 	detector.delLocker(m)
 }
