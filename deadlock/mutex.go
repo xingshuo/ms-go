@@ -1,13 +1,19 @@
 package deadlock
 
 import (
+	"bufio"
+	"fmt"
 	"sync"
-	"sync/atomic"
+	"time"
+
+	"github.com/petermattis/goid"
 )
-import "github.com/petermattis/goid"
 
 type Mutex struct {
-	L sync.Mutex
+	L       sync.Mutex
+	waiters map[int64]int64 // gid : time.Now().Unix()
+	owner   lockCtx         // gid
+	mu      sync.Mutex
 }
 
 func (m *Mutex) Lock() {
@@ -16,9 +22,34 @@ func (m *Mutex) Lock() {
 		return
 	}
 	gid := goid.Get()
-	detector.addWaiter(m, gid)
+	// 加锁前
+	m.mu.Lock()
+	if gid == m.owner.gid {
+		m.mu.Unlock()
+		Opts.OnDeadlock()
+		return
+	}
+	if m.waiters == nil {
+		m.waiters = make(map[int64]int64)
+	}
+	// 重复等锁
+	if m.waiters[gid] > 0 {
+		m.mu.Unlock()
+		Opts.OnDeadlock()
+		return
+	}
+	// 添加gid到waiter列表
+	m.waiters[gid] = time.Now().Unix()
+	m.mu.Unlock()
+	// 加锁处理
 	m.L.Lock()
-	detector.addLocker(m, gid)
+	// 加锁后
+	m.mu.Lock()
+	delete(m.waiters, gid)
+	m.owner.gid = gid
+	m.owner.locktime = time.Now().Unix()
+	detector.addLocker(m)
+	m.mu.Unlock()
 }
 
 func (m *Mutex) Unlock() {
@@ -26,73 +57,53 @@ func (m *Mutex) Unlock() {
 		m.L.Unlock()
 		return
 	}
+	// 解锁前
+	m.mu.Lock()
+	m.owner.gid = 0
+	m.owner.locktime = 0
+	detector.delLocker(m)
+	m.mu.Unlock()
+	// 解锁
 	m.L.Unlock()
-	detector.delLocker(m)
 }
 
-type RWMutex struct {
-	L sync.RWMutex
-	Ref int64
-	WaitRef int64
-	lastGid int64
-}
+func (m *Mutex) detect(now, timeout int64, stacks map[int64][]byte) {
+	m.mu.Lock()
+	deadGids := make(map[int64]bool)
+	if m.owner.gid != 0 && m.owner.locktime+timeout <= now {
+		deadGids[m.owner.gid] = true
+	}
+	for gid, locktime := range m.waiters {
+		if locktime+timeout <= now {
+			deadGids[gid] = true
+		}
+	}
+	m.mu.Unlock()
 
-func (m *RWMutex) Lock() {
-	if Opts.Disable {
-		panic("lock disable")
-		m.L.Lock()
+	if len(deadGids) == 0 {
 		return
 	}
-	gid := goid.Get()
-	detector.addWaiter(m, gid)
-	atomic.AddInt64(&m.WaitRef, 1)
-	m.L.Lock()
-	m.lastGid = gid
-	atomic.AddInt64(&m.Ref, 1)
-	atomic.AddInt64(&m.WaitRef, -1)
-	detector.addLocker(m, gid)
-}
 
-func (m *RWMutex) Unlock() {
-	if Opts.Disable {
-		panic("unlock disable")
-		m.L.Unlock()
-		return
+	Opts.Logger.Write(logHeader)
+	fmt.Fprintf(Opts.Logger, "the lock %p was grabbed by goroutines:\n", m)
+	for gid := range deadGids {
+		fmt.Fprintf(Opts.Logger, "[%d]\n", gid)
+		if stacks[gid] != nil {
+			Opts.Logger.Write(stacks[gid])
+		}
 	}
-	atomic.AddInt64(&m.Ref, -1)
-	m.lastGid = 0
-	m.L.Unlock()
-	detector.delLocker(m)
-}
+	Opts.Logger.Write([]byte("\nother waitting goroutines:\n"))
 
-func (m *RWMutex) RLock() {
-	if Opts.Disable {
-		panic("rlock disable")
-		m.L.RLock()
-		return
+	m.mu.Lock()
+	for gid := range m.waiters {
+		if stacks[gid] != nil && deadGids[gid] == false {
+			Opts.Logger.Write(stacks[gid])
+		}
 	}
-	gid := goid.Get()
-	detector.addWaiter(m, gid)
-	atomic.AddInt64(&m.WaitRef, 1)
-	m.L.RLock()
-	m.lastGid = gid
-	atomic.AddInt64(&m.Ref, 1)
-	atomic.AddInt64(&m.WaitRef, -1)
-	detector.addLocker(m, gid)
-}
+	m.mu.Unlock()
 
-func (m *RWMutex) RUnlock() {
-	if Opts.Disable {
-		panic("runlock disable")
-		m.L.RUnlock()
-		return
+	if buf, ok := Opts.Logger.(*bufio.Writer); ok {
+		buf.Flush()
 	}
-	atomic.AddInt64(&m.Ref, -1)
-	m.lastGid = 0
-	m.L.RUnlock()
-	detector.delLocker(m)
-}
-
-func (m *RWMutex) RLocker() sync.Locker {
-	return m
+	Opts.OnDeadlock()
 }

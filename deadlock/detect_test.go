@@ -58,7 +58,6 @@ func TestDirectReLock(t *testing.T) {
 	var lock Mutex
 	Opts.OnDeadlock = func() {
 		log.Println("---catch lock deadlock info---")
-		lock.Unlock()
 	}
 	lock.Lock()
 	lock.Unlock()
@@ -66,7 +65,6 @@ func TestDirectReLock(t *testing.T) {
 	lock.Lock()
 
 	lock.Lock()
-	lock.Unlock()
 
 	var rwlock RWMutex
 	Opts.OnDeadlock = func() {
