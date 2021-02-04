@@ -125,7 +125,6 @@ func (m *RWMutex) beforeRLock(gid int64) {
 
 func (m *RWMutex) RLock() {
 	if Opts.Disable {
-		panic("rlock disable")
 		m.L.RLock()
 		return
 	}
@@ -157,7 +156,6 @@ func (m *RWMutex) afterRLock(gid int64) {
 
 func (m *RWMutex) RUnlock() {
 	if Opts.Disable {
-		panic("runlock disable")
 		m.L.RUnlock()
 		return
 	}
