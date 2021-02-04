@@ -36,7 +36,7 @@ func BenchmarkMutexEnable(b *testing.B) {
 }
 
 // rwmutex lock bench test
-func BenchmarkRawRWMutex(b *testing.B) {
+func BenchmarkRawRWMutexLock(b *testing.B) {
 	var lock sync.RWMutex
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
@@ -45,7 +45,16 @@ func BenchmarkRawRWMutex(b *testing.B) {
 	}
 }
 
-func BenchmarkRWMutexDisable(b *testing.B) {
+func BenchmarkRawRWMutexRLock(b *testing.B) {
+	var lock sync.RWMutex
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lock.RLock()
+		lock.RUnlock()
+	}
+}
+
+func BenchmarkRWMutexLockDisable(b *testing.B) {
 	Opts.Disable = true
 	var lock RWMutex
 	b.ResetTimer()
@@ -55,12 +64,32 @@ func BenchmarkRWMutexDisable(b *testing.B) {
 	}
 }
 
-func BenchmarkRWMutexEnable(b *testing.B) {
+func BenchmarkRWMutexRLockDisable(b *testing.B) {
+	Opts.Disable = true
+	var lock RWMutex
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lock.RLock()
+		lock.RUnlock()
+	}
+}
+
+func BenchmarkRWMutexLockEnable(b *testing.B) {
 	Opts.Disable = false
 	var lock RWMutex
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		lock.Lock()
 		lock.Unlock()
+	}
+}
+
+func BenchmarkRWMutexRLockEnable(b *testing.B) {
+	Opts.Disable = false
+	var lock RWMutex
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		lock.RLock()
+		lock.RUnlock()
 	}
 }
