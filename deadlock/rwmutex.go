@@ -43,10 +43,9 @@ func (m *RWMutex) beforeLock(gid int64) bool {
 		return true
 	}
 	// 记录写锁抢占
-	now := time.Now().Unix()
 	m.waitWriters[gid] = &rwlockCtx{
 		gid:      gid,
-		locktime: now,
+		locktime: time.Now().Unix(),
 		ref:      1,
 	}
 	m.mu.Unlock()
@@ -116,11 +115,11 @@ func (m *RWMutex) beforeRLock(gid int64) {
 	if m.waitReaders[gid] == nil {
 		m.waitReaders[gid] = &rwlockCtx{
 			gid:      gid,
-			locktime: time.Now().Unix(),
 			ref:      0,
 		}
 	}
 	m.waitReaders[gid].ref++
+	m.waitReaders[gid].locktime = time.Now().Unix()
 	m.mu.Unlock()
 }
 
