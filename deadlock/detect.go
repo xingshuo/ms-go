@@ -69,18 +69,29 @@ func (d *Detector) Detect() {
 		timeout = minDetectionTimeout
 	}
 	tiSec := int64(timeout / time.Second)
-	now := time.Now().Unix()
 	stacks := stacks()
 
+	lockers := make([]*Mutex, 0, len(d.lockers))
 	d.mu.Lock()
 	for l := range d.lockers {
-		go l.detect(now, tiSec, stacks)
+		lockers = append(lockers, l)
 	}
 	d.mu.Unlock()
+	// 单线程最安全
+	now := time.Now().Unix()
+	for _, l := range lockers {
+		l.detect(now, tiSec, stacks)
+	}
 
+	rwlockers := make([]*RWMutex, 0, len(d.rwlockers))
 	d.rwmu.Lock()
 	for l := range d.rwlockers {
-		go l.detect(now, tiSec, stacks)
+		rwlockers = append(rwlockers, l)
 	}
 	d.rwmu.Unlock()
+
+	now = time.Now().Unix()
+	for _, l := range rwlockers {
+		l.detect(now, tiSec, stacks)
+	}
 }

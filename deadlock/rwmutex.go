@@ -198,11 +198,13 @@ func (m *RWMutex) detect(now, timeout int64, stacks map[int64][]byte) {
 		return
 	}
 
+	gNum := uint32(0)
 	Opts.Logger.Write(logHeader)
 	fmt.Fprintf(Opts.Logger, "the lock %p was grabbed by goroutines:\n", m)
 	for gid := range deadGids {
+		gNum++
 		fmt.Fprintf(Opts.Logger, "[%d]\n", gid)
-		if stacks[gid] != nil {
+		if stacks[gid] != nil && isValidPrintStack(gNum) {
 			Opts.Logger.Write(stacks[gid])
 		}
 	}
@@ -210,12 +212,14 @@ func (m *RWMutex) detect(now, timeout int64, stacks map[int64][]byte) {
 
 	m.mu.Lock()
 	for gid := range m.waitReaders {
-		if stacks[gid] != nil && deadGids[gid] == false {
+		gNum++
+		if stacks[gid] != nil && deadGids[gid] == false && isValidPrintStack(gNum) {
 			Opts.Logger.Write(stacks[gid])
 		}
 	}
 	for gid := range m.waitWriters {
-		if stacks[gid] != nil && deadGids[gid] == false {
+		gNum++
+		if stacks[gid] != nil && deadGids[gid] == false && isValidPrintStack(gNum) {
 			Opts.Logger.Write(stacks[gid])
 		}
 	}
